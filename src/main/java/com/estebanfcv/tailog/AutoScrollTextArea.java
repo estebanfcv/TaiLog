@@ -5,39 +5,41 @@ import javax.swing.text.*;
 import java.awt.*;
 
 /**
- * 
+ *
  * @author estebanfcv
  */
 public class AutoScrollTextArea extends JScrollPane {
-    
+
+    private final JTextPane textPane = new JTextPane(new DefaultStyledDocument());
+    private SimpleAttributeSet attributeSet = new SimpleAttributeSet();
+
     public AutoScrollTextArea() {
         super();
-        _textPane.setEditable(false);
-        _textPane.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        this.setViewportView(_textPane);
+        textPane.setEditable(false);
+        textPane.setContentType("text/html;charset=UTF-8");
+        textPane.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        this.setViewportView(textPane);
     }
-    
+
     private void scrollToBottom() {
-        _textPane.setCaretPosition(_textPane.getDocument().getLength());
+        textPane.setCaretPosition(textPane.getDocument().getLength());
     }
-    
+
     public JTextPane getTextPane() {
-        return _textPane;
+        return textPane;
     }
-    
+
     public void append(String str) throws BadLocationException {
-        _textPane.getDocument().insertString(_textPane.getDocument().getLength(), str, _attributeSet);
+        textPane.getDocument().insertString(textPane.getDocument().getLength(), str, attributeSet);
         scrollToBottom();
     }
-    
+
     public Document getDocument() {
-        return _textPane.getDocument();
+        return textPane.getDocument();
     }
-    
+
     public SimpleAttributeSet getSimpleAttributeSet() {
-        return _attributeSet;
+        return attributeSet;
     }
-    
-    private JTextPane _textPane = new JTextPane(new DefaultStyledDocument());
-    private SimpleAttributeSet _attributeSet = new SimpleAttributeSet();
+
 }

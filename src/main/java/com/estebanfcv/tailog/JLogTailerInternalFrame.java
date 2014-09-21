@@ -1,31 +1,59 @@
 package com.estebanfcv.tailog;
 
-import java.io.*;
-import java.util.*;
-
-import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.text.*;
-import java.awt.*;
-import java.awt.event.*;
-import java.util.regex.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Container;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import javax.swing.JFrame;
+import javax.swing.JInternalFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JTextPane;
+import javax.swing.event.InternalFrameAdapter;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
 
 /**
- * 
+ *
  * @author estebanfcv
  */
 public class JLogTailerInternalFrame extends JInternalFrame implements Runnable, Serializable {
-    
-    public JLogTailerInternalFrame() {
-        
-    }
-    
+
+    // Maximum number of lines that we shall display before removing earlier ones.
+    private final int lineasMaximas = 500;
+    private int lineasMostradas = 0;
+
+    private boolean corriendo = true;
+    private final int dormir = 1000;
+    private final File file;
+    private long filePointer;
+    private final AutoScrollTextArea asta = new AutoScrollTextArea();
+
+    private  List<CondicionFormato> rules = new ArrayList();
+
+    private final CondicionFormato defaultRule = new CondicionFormato();
+
+    private JFrame _owner;
+
     public JLogTailerInternalFrame(JFrame owner, File file, Rectangle bounds) throws IOException {
         _owner = owner;
-        _file = file;
-        
+        this.file = file;
+
         Container pane = this.getContentPane();
-        pane.add(_asta, BorderLayout.CENTER);
+        pane.add(asta, BorderLayout.CENTER);
         this.setResizable(true);
         this.setClosable(true);
         this.setMaximizable(true);
@@ -33,54 +61,54 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
         this.setBounds(bounds);
         this.setTitle(file.getName());
         this.setDefaultCloseOperation(JInternalFrame.DO_NOTHING_ON_CLOSE);
-        
+
         // Detects when the window is closed.
         this.addInternalFrameListener(new InternalFrameAdapter() {
             public void internalFrameClosing(InternalFrameEvent ife) {
-                _running = false;
-                dispose();
-            }
-        });
-        
-        // Set up the menu bar
-        JMenuBar menuBar = new JMenuBar();
-        
-        JMenu fileMenu = new JMenu("File");
-        menuBar.add(fileMenu);
-        JMenu highlightingMenu = new JMenu("Highlighting");
-        menuBar.add(highlightingMenu);
-        
-        JMenuItem fileCloseItem = new JMenuItem("Close");
-        fileMenu.add(fileCloseItem);
-        JMenuItem highlightingOptionsItem = new JMenuItem("Highlighting options");
-        highlightingMenu.add(highlightingOptionsItem);
-        
-        this.setJMenuBar(menuBar);
-        
-        fileCloseItem.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent ae) {
-                _running = false;
+                corriendo = false;
                 dispose();
             }
         });
 
-        highlightingOptionsItem.addActionListener(new ActionListener() {
+        // Set up the menu bar
+        JMenuBar menuBar = new JMenuBar();
+
+        JMenu fileMenu = new JMenu("Archivo");
+        menuBar.add(fileMenu);
+        JMenu menuFormato = new JMenu("Formato");
+        menuBar.add(menuFormato);
+
+        JMenuItem menuCerrar = new JMenuItem("Cerrar");
+        fileMenu.add(menuCerrar);
+        JMenuItem menuOpciones = new JMenuItem("Opciones");
+        menuFormato.add(menuOpciones);
+
+        this.setJMenuBar(menuBar);
+
+        menuCerrar.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent ae) {
+                corriendo = false;
+                dispose();
+            }
+        });
+
+        menuOpciones.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
                 new SettingsDialog(_owner, JLogTailerInternalFrame.this);
             }
         });
-        
+
         // Do not allow tail logging of non-existant files. (Is this a good idea?)
         if (!file.exists() || file.isDirectory() || !file.canRead()) {
-            throw new IOException("Can't read this file.");
+            throw new IOException("No se puede leer el archivo");
         }
-        
-        _filePointer = _file.length();
-        
-        this.appendMessage("Log tailing started on " + _file.toString());
+
+        filePointer = this.file.length();
+
+        this.appendMessage("Log tailing started on " + this.file.toString());
         this.setVisible(true);
     }
-    
+
     // This is the method that contains all the actual log tailing stuff.
     // Note: I'm not particularly happy about the use of the readLine()
     // method call, as it may return a partial line if it reaches the
@@ -88,115 +116,98 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
     // a later date so that a different approach is used.
     public void run() {
         try {
-            while (_running) {
-                Thread.sleep(_updateInterval);
-                long len = _file.length();
-                if (len < _filePointer) {
+            while (corriendo) {
+                Thread.sleep(dormir);
+                long len = file.length();
+                if (len < filePointer) {
                     // Log must have been jibbled or deleted.
                     this.appendMessage("Log file was reset. Restarting logging from start of file.");
-                    _filePointer = len;
-                }
-                else if (len > _filePointer) {
+                    filePointer = len;
+                } else if (len > filePointer) {
                     // File must have had something added to it!
-                    RandomAccessFile raf = new RandomAccessFile(_file, "r");
-                    raf.seek(_filePointer);
-                    String line = null;
+                    RandomAccessFile raf = new RandomAccessFile(file, "r");
+                    raf.seek(filePointer);
+                    String line;
                     while ((line = raf.readLine()) != null) {
+                        System.out.println("La linea es:::::: "+line);
                         this.appendLine(line);
                     }
-                    _filePointer = raf.getFilePointer();
+                    filePointer = raf.getFilePointer();
                     raf.close();
                 }
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             this.appendMessage("Fatal error reading log file, log tailing has stopped.");
         }
-        // dispose();
+         dispose();
     }
-    
+
     public void appendLine(String line) {
         try {
-            
-            HighlightRule rule = _defaultRule;
+
+            CondicionFormato rule = defaultRule;
             // Synchronize on the rule list so that nothing can be added to it
             // while we go through it (going through it with a for loop is
             // actually quicker than using an iterator on any other kind of List.
-            synchronized (_rules) {
-                for (int i = 0; i < _rules.size(); i++) {
-                    HighlightRule candidate = (HighlightRule)_rules.get(i);
-                    Pattern pattern = candidate.getPattern();
-                    Matcher matcher = pattern.matcher(line);
-                    if (matcher.find()) {
+            synchronized (rules) {
+                for (CondicionFormato candidate : rules) {
+                    if (line.contains(candidate.getExpresion())) {
                         rule = candidate;
                         break;
                     }
                 }
             }
-            
-            if (rule.getBeep()) {
+
+            if (rule.isSonido()) {
                 // We should beep when this line is seen.
-                this.getToolkit().beep();
+                getToolkit().beep();
             }
-            
-            if (rule.getFiltered()) {
+
+            if (rule.isFiltro()) {
                 // We're not actually going to show filtered lines...
                 return;
             }
 
-            JTextPane textPane = _asta.getTextPane();
-            Document document = _asta.getDocument();
-            SimpleAttributeSet attr = _asta.getSimpleAttributeSet();
-            
-            rule.alterAttributeSet(attr);            
-            _asta.append(line + "\n");
-            
+            JTextPane textPane = asta.getTextPane();
+            Document document = asta.getDocument();
+            SimpleAttributeSet attr = asta.getSimpleAttributeSet();
+
+            rule.alterAttributeSet(attr);
+            asta.append(line + "\n");
+
             textPane.setDocument(document);
-            if (++_linesShown > _maxLines) {
+            if (++lineasMostradas > lineasMaximas) {
                 // We must remove a line!
                 int len = textPane.getText().indexOf('\n');
                 document.remove(0, len);
-                _linesShown--;
+                lineasMostradas--;
             }
-        }
-        catch (BadLocationException e) {
+        } catch (BadLocationException e) {
             // But this'll never happen, right?
             throw new RuntimeException("Tried to add a new line to a bad place.");
         }
     }
-    
+
     public void appendMessage(String message) {
-        SimpleAttributeSet attr = _asta.getSimpleAttributeSet();
+        SimpleAttributeSet attr = asta.getSimpleAttributeSet();
         StyleConstants.setForeground(attr, Color.red);
-        this.appendLine("[" + new Date().toString() + ", " + message + "]");
+        this.appendLine("[" + new Date() + ", " + message + "]");
         StyleConstants.setForeground(attr, Color.black);
     }
-    
+
     public String getFilename() {
-        return _file.toString();
+        return file.toString();
     }
-    
-    public ArrayList getRules() {
-        return _rules;
+
+    public List<CondicionFormato> getRules() {
+        return rules;
     }
-    
+
     public File getFile() {
-        return _file;
+        return file;
     }
-    
-    // Maximum number of lines that we shall display before removing earlier ones.
-    private int _maxLines = 500;
-    private int _linesShown = 0;
-    
-    private boolean _running = true;
-    private int _updateInterval = 1000;
-    private File _file;
-    private long _filePointer;
-    private AutoScrollTextArea _asta = new AutoScrollTextArea();
-    
-    private ArrayList _rules = new ArrayList();
-    private HighlightRule _defaultRule = new HighlightRule();
-    
-    private JFrame _owner;
-    
+
+    public void setRules(List<CondicionFormato> rules) {
+        this.rules = rules;
+    }
 }

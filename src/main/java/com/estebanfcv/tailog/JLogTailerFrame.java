@@ -1,10 +1,30 @@
 package com.estebanfcv.tailog;
 
-import java.io.*;
-import java.util.*;
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Container;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import javax.swing.JDesktopPane;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JInternalFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 
 /**
  *
@@ -12,8 +32,8 @@ import java.awt.event.*;
  */
 public class JLogTailerFrame extends JFrame implements Serializable {
 
-    public static final File SETTINGS_FILE = new File(System.getProperties().getProperty("user.home"), "JLogTailer2.xml");
-    private transient JDesktopPane _desktop = new JDesktopPane();
+    public static final File ARCHIVO_CONFIGURACION = new File(System.getProperties().getProperty("user.home"), "JLogTailer2.xml");
+    private final transient JDesktopPane escritorio = new JDesktopPane();
     private File directorioActual = null;
 
     public JLogTailerFrame(String title, int width, int height) {
@@ -21,37 +41,37 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         this.setSize(width, height);
 
         Container pane = this.getContentPane();
-        pane.add(_desktop, BorderLayout.CENTER);
+        pane.add(escritorio, BorderLayout.CENTER);
 
         JMenuBar menuBar = new JMenuBar();
 
-        JMenu fileMenu = new JMenu("File");
+        JMenu fileMenu = new JMenu("Archivo");
         menuBar.add(fileMenu);
-        JMenuItem fileOpenItem = new JMenuItem("Open log");
+        JMenuItem fileOpenItem = new JMenuItem("Abrir log");
         fileMenu.add(fileOpenItem);
-        JMenuItem fileExitItem = new JMenuItem("Exit");
+        JMenuItem fileExitItem = new JMenuItem("Salir");
         fileMenu.add(fileExitItem);
 
-        JMenu windowMenu = new JMenu("Window");
+        JMenu windowMenu = new JMenu("Ventana");
         menuBar.add(windowMenu);
         JMenuItem windowTileVerticallyItem = new JMenuItem("Tile vertically");
         windowMenu.add(windowTileVerticallyItem);
         JMenuItem windowTileBoxedItem = new JMenuItem("Tile boxed");
         windowMenu.add(windowTileBoxedItem);
 
-        JMenu helpMenu = new JMenu("Help");
+        JMenu helpMenu = new JMenu("Ayuda");
         menuBar.add(helpMenu);
-        JMenuItem helpTipsItem = new JMenuItem("Tips");
-        helpMenu.add(helpTipsItem);
-        JMenuItem helpAboutItem = new JMenuItem("About");
+
+        JMenuItem helpAboutItem = new JMenuItem("Acerca de");
         helpMenu.add(helpAboutItem);
 
         this.setJMenuBar(menuBar);
 
         // Allows the window to be closed.
         this.addWindowListener(new WindowAdapter() {
+            @Override
             public void windowClosing(WindowEvent we) {
-                exit();
+                salir();
             }
         });
 
@@ -62,12 +82,8 @@ public class JLogTailerFrame extends JFrame implements Serializable {
                 int returnVal = chooser.showOpenDialog(JLogTailerFrame.this);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
                     File file = new File(chooser.getCurrentDirectory(), chooser.getSelectedFile().getName());
-                    try {
-                        startLogging(file, null, new Rectangle(600, 400));
-                        directorioActual = file.getParentFile();
-                    } catch (IOException e) {
-                        JOptionPane.showMessageDialog(JLogTailerFrame.this, file.toString() + " cannot be tail logged.", "Logging not started", JOptionPane.INFORMATION_MESSAGE);
-                    }
+                    leerArchivoConfiguracion(file);
+                    directorioActual = file.getParentFile();
                 }
             }
         });
@@ -75,7 +91,7 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         // Exits the application.
         fileExitItem.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-                exit();
+                salir();
             }
         });
 
@@ -94,62 +110,52 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         // Displays "about" information.
         helpAboutItem.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-                JOptionPane.showMessageDialog(JLogTailerFrame.this, "JLogTailer 2.0.0\nA Java log tailer by Paul Mutton\nhttp://www.jibble.org/", "About", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(JLogTailerFrame.this,
+                        "JLogTailer 2.0.0\nA Java log tailer by Paul Mutton\nhttp://www.jibble.org/",
+                        "About", JOptionPane.INFORMATION_MESSAGE);
             }
         });
-
-        // Displays "about" information.
-        helpTipsItem.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent ae) {
-                JOptionPane.showMessageDialog(JLogTailerFrame.this, "When you start JLogTailer, it will remember which files you were last looking at.\nLine highlighting rules are also remembered between sessions.\nCheck out the highlighting options to make certain lines coloured, bold, underlined, etc.\nAll configuration is saved in your home directory as JLogTailer2.xml\nRead the javadoc documentation for the Pattern class for help with regular expressions.\nDon't forget that you can order lists of multiple rules for any file.", "Tips", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-
-        this.readConfig();
 
         this.setVisible(true);
 
     }
 
-    private void startLogging(File file, ArrayList rules, Rectangle bounds) throws IOException {
+    private void startLogging(File file, List rules, Rectangle bounds) throws IOException {
         JLogTailerInternalFrame iFrame = new JLogTailerInternalFrame(JLogTailerFrame.this, file, bounds);
         if (rules != null) {
-            ArrayList logRules = iFrame.getRules();
+            List logRules = iFrame.getRules();
             synchronized (logRules) {
                 logRules.addAll(rules);
             }
+            iFrame.setRules(logRules);
         }
-        _desktop.add(iFrame);
+        escritorio.add(iFrame);
         iFrame.moveToFront();
         Thread t = new Thread(iFrame);
         t.start();
     }
 
-    private void readConfig() {
+    private void leerArchivoConfiguracion(File file) {
         try {
-            System.out.println("Trying to read previous configuration...");
-            java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(new BufferedInputStream(new FileInputStream(SETTINGS_FILE)));
-
+            System.out.println("Leyendo el archivo de configuración...");
+            java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(new BufferedInputStream(new FileInputStream(ARCHIVO_CONFIGURACION)));
             this.setBounds((Rectangle) decoder.readObject());
-
             int frameCount = ((Integer) decoder.readObject());
             for (int i = 0; i < frameCount; i++) {
-                String path = (String) decoder.readObject();
-                File file = new File(path);
+                decoder.readObject();
                 Rectangle bounds = (Rectangle) decoder.readObject();
-
                 int ruleCount = ((Integer) decoder.readObject());
                 ArrayList rules = new ArrayList();
                 for (int j = 0; j < ruleCount; j++) {
-                    String name =  decoder.readObject().toString();
-                    String regexp =  decoder.readObject().toString();
-                    boolean underlined = ((Boolean) decoder.readObject());
-                    boolean bold = ((Boolean) decoder.readObject());
-                    boolean filtered = ((Boolean) decoder.readObject());
-                    boolean beep = ((Boolean) decoder.readObject());
+                    String name = decoder.readObject().toString();
+                    String condicion = decoder.readObject().toString();
+                    boolean subrayado = ((Boolean) decoder.readObject());
+                    boolean negritas = ((Boolean) decoder.readObject());
+                    boolean filtro = ((Boolean) decoder.readObject());
+                    boolean sonido = ((Boolean) decoder.readObject());
                     Color color = (Color) decoder.readObject();
-                    HighlightRule rule = new HighlightRule(name, regexp, underlined, bold, filtered, beep, color);
-                    rules.add(rule);
+                    CondicionFormato regla = new CondicionFormato(name, condicion, subrayado, negritas, filtro, sonido, color);
+                    rules.add(regla);
                 }
                 startLogging(file, rules, bounds);
             }
@@ -160,33 +166,30 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         }
     }
 
-    private void exit() {
+    private void salir() {
         this.setVisible(false);
 
         // Save our configuration!
         try {
-            java.beans.XMLEncoder encoder = new java.beans.XMLEncoder(new BufferedOutputStream(new FileOutputStream(SETTINGS_FILE)));
+            java.beans.XMLEncoder encoder = new java.beans.XMLEncoder(new BufferedOutputStream(new FileOutputStream(ARCHIVO_CONFIGURACION)));
             encoder.writeObject(this.getBounds());
-            JInternalFrame[] frames = _desktop.getAllFrames();
-            int frameCount = frames.length;
-            encoder.writeObject(new Integer(frameCount));
-            for (int n = 0; n < frameCount; n++) {
-                JLogTailerInternalFrame frame = (JLogTailerInternalFrame) frames[n];
+            JInternalFrame[] frames = escritorio.getAllFrames();
+            encoder.writeObject(new Integer(frames.length));
+            for (JInternalFrame jFrame : frames) {
+                JLogTailerInternalFrame frame = (JLogTailerInternalFrame) jFrame;
                 encoder.writeObject(frame.getFile().getPath());
                 encoder.writeObject(frame.getBounds());
-
-                ArrayList rules = frame.getRules();
+                List<CondicionFormato> rules = frame.getRules();
                 synchronized (rules) {
                     encoder.writeObject(new Integer(rules.size()));
-                    for (int i = 0; i < rules.size(); i++) {
-                        HighlightRule rule = (HighlightRule) rules.get(i);
-                        encoder.writeObject(rule.getName());
-                        encoder.writeObject(rule.getRegexp());
-                        encoder.writeObject(rule.getUnderlined());
-                        encoder.writeObject(rule.getBold());
-                        encoder.writeObject(rule.getFiltered());
-                        encoder.writeObject(rule.getBeep());
-                        encoder.writeObject(rule.getColor());
+                    for (CondicionFormato cf : rules) {
+                        encoder.writeObject(cf.getNombre());
+                        encoder.writeObject(cf.getExpresion());
+                        encoder.writeObject(cf.isSubrayado());
+                        encoder.writeObject(cf.isNegritas());
+                        encoder.writeObject(cf.isFiltro());
+                        encoder.writeObject(cf.isSonido());
+                        encoder.writeObject(cf.getColor());
                     }
                 }
             }
@@ -202,27 +205,28 @@ public class JLogTailerFrame extends JFrame implements Serializable {
     }
 
     private void tileInternalFramesVertically() {
-        int desktopWidth = _desktop.getWidth();
-        int desktopHeight = _desktop.getHeight();
-        JInternalFrame[] frames = _desktop.getAllFrames();
+        int desktopWidth = escritorio.getWidth();
+        int desktopHeight = escritorio.getHeight();
+        JInternalFrame[] frames = escritorio.getAllFrames();
         int frameCount = frames.length;
-        for (int n = 0; n < frameCount; n++) {
-            JInternalFrame frame = frames[n];
+        int n=0;
+        for (JInternalFrame jFrame : frames) {
             try {
-                frame.setIcon(false);
+                jFrame.setIcon(false);
             } catch (java.beans.PropertyVetoException e) {
-                // Carry on...
+                e.printStackTrace();
             }
-            frame.reshape(0, (n * desktopHeight) / frameCount, desktopWidth, desktopHeight / frameCount);
-            frame.setVisible(true);
-            frame.toFront();
+            jFrame.reshape(0, (n * desktopHeight) / frameCount, desktopWidth, desktopHeight / frameCount);
+            jFrame.setVisible(true);
+            jFrame.toFront();
+            n++;
         }
     }
 
     private void tileInternalFramesBoxed() {
-        int desktopWidth = _desktop.getWidth();
-        int desktopHeight = _desktop.getHeight();
-        JInternalFrame[] frames = _desktop.getAllFrames();
+        int desktopWidth = escritorio.getWidth();
+        int desktopHeight = escritorio.getHeight();
+        JInternalFrame[] frames = escritorio.getAllFrames();
         int frameCount = frames.length;
         int totalRows = (int) Math.sqrt((double) frameCount);
         int totalCols = 1;

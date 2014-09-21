@@ -7,7 +7,7 @@ package com.estebanfcv.tailog;
 public class JLogTailerMain {
     
     public static void main(String[] args) {
-        new JLogTailerFrame("JLogTailer", 640, 480);
+        new JLogTailerFrame("TaiLog", 640, 480);
     }
     
 }
