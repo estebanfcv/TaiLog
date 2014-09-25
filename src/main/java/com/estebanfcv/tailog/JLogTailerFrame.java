@@ -141,6 +141,7 @@ public class JLogTailerFrame extends JFrame implements Serializable {
             java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(new BufferedInputStream(new FileInputStream(ARCHIVO_CONFIGURACION)));
             this.setBounds((Rectangle) decoder.readObject());
             int frameCount = ((Integer) decoder.readObject());
+            System.out.println("los frames son ::::: "+frameCount);
             for (int i = 0; i < frameCount; i++) {
                 decoder.readObject();
                 Rectangle bounds = (Rectangle) decoder.readObject();
@@ -157,7 +158,9 @@ public class JLogTailerFrame extends JFrame implements Serializable {
                     CondicionFormato regla = new CondicionFormato(name, condicion, subrayado, negritas, filtro, sonido, color);
                     rules.add(regla);
                 }
+                System.out.println("1");
                 startLogging(file, rules, bounds);
+                System.out.println("2");
             }
 
             decoder.close();
