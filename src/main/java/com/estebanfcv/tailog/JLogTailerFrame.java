@@ -1,5 +1,6 @@
 package com.estebanfcv.tailog;
 
+import com.estebanfcv.util.Util;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Container;
@@ -8,15 +9,16 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringTokenizer;
 import javax.swing.JDesktopPane;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -32,7 +34,7 @@ import javax.swing.JOptionPane;
  */
 public class JLogTailerFrame extends JFrame implements Serializable {
 
-    public static final File ARCHIVO_CONFIGURACION = new File(System.getProperties().getProperty("user.home"), "JLogTailer2.xml");
+    public static final File ARCHIVO_CONFIGURACION = new File(System.getProperties().getProperty("user.home"), "TaiLog.txt");
     private final transient JDesktopPane escritorio = new JDesktopPane();
     private File directorioActual = null;
 
@@ -136,74 +138,76 @@ public class JLogTailerFrame extends JFrame implements Serializable {
     }
 
     private void leerArchivoConfiguracion(File file) {
+
+        FileReader fr = null;
+        BufferedReader br = null;
+        ArrayList<CondicionFormato> rules = new ArrayList();
         try {
-            System.out.println("Leyendo el archivo de configuración...");
-            java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(new BufferedInputStream(new FileInputStream(ARCHIVO_CONFIGURACION)));
-            this.setBounds((Rectangle) decoder.readObject());
-            int frameCount = ((Integer) decoder.readObject());
-            System.out.println("los frames son ::::: "+frameCount);
-            for (int i = 0; i < frameCount; i++) {
-                decoder.readObject();
-                Rectangle bounds = (Rectangle) decoder.readObject();
-                int ruleCount = ((Integer) decoder.readObject());
-                ArrayList rules = new ArrayList();
-                for (int j = 0; j < ruleCount; j++) {
-                    String name = decoder.readObject().toString();
-                    String condicion = decoder.readObject().toString();
-                    boolean subrayado = ((Boolean) decoder.readObject());
-                    boolean negritas = ((Boolean) decoder.readObject());
-                    boolean filtro = ((Boolean) decoder.readObject());
-                    boolean sonido = ((Boolean) decoder.readObject());
-                    Color color = (Color) decoder.readObject();
-                    CondicionFormato regla = new CondicionFormato(name, condicion, subrayado, negritas, filtro, sonido, color);
+            if (!ARCHIVO_CONFIGURACION.exists()) {
+                crearArchivoConfiguracion();
+            }
+            fr = new FileReader(ARCHIVO_CONFIGURACION);
+            br = new BufferedReader(fr);
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                for (StringTokenizer token = new StringTokenizer(linea, "&"); token.hasMoreTokens();) {
+                    String nombre = token.nextToken();
+                    String condicion = token.nextToken();
+                    boolean subrayado = Boolean.parseBoolean(token.nextToken());
+                    boolean negritas = Boolean.parseBoolean(token.nextToken());
+                    boolean filtro = Boolean.parseBoolean(token.nextToken());
+                    boolean sonido = Boolean.parseBoolean(token.nextToken());
+                    int r = Integer.parseInt(token.nextToken());
+                    int g = Integer.parseInt(token.nextToken());
+                    int b = Integer.parseInt(token.nextToken());
+                    Color color = new Color(r, g, b);
+                    CondicionFormato regla = new CondicionFormato(nombre, condicion, subrayado, negritas, filtro, sonido, color);
                     rules.add(regla);
                 }
-                System.out.println("1");
-                startLogging(file, rules, bounds);
-                System.out.println("2");
             }
-
-            decoder.close();
+            startLogging(file, rules, new Rectangle(0, 0, 640, 480));
         } catch (Exception e) {
+            e.printStackTrace();
             System.out.println("Could not find previous configuration: assuming defaults.");
+        } finally {
+            Util.cerrarLecturaEscritura(br, fr);
         }
     }
 
     private void salir() {
         this.setVisible(false);
-
-        // Save our configuration!
+        FileWriter fw = null;
+        PrintWriter pw = null;
+        StringBuilder regla;
         try {
-            java.beans.XMLEncoder encoder = new java.beans.XMLEncoder(new BufferedOutputStream(new FileOutputStream(ARCHIVO_CONFIGURACION)));
-            encoder.writeObject(this.getBounds());
+            fw = new FileWriter(ARCHIVO_CONFIGURACION, false);
+            pw = new PrintWriter(fw);
             JInternalFrame[] frames = escritorio.getAllFrames();
-            encoder.writeObject(new Integer(frames.length));
             for (JInternalFrame jFrame : frames) {
                 JLogTailerInternalFrame frame = (JLogTailerInternalFrame) jFrame;
-                encoder.writeObject(frame.getFile().getPath());
-                encoder.writeObject(frame.getBounds());
                 List<CondicionFormato> rules = frame.getRules();
                 synchronized (rules) {
-                    encoder.writeObject(new Integer(rules.size()));
                     for (CondicionFormato cf : rules) {
-                        encoder.writeObject(cf.getNombre());
-                        encoder.writeObject(cf.getExpresion());
-                        encoder.writeObject(cf.isSubrayado());
-                        encoder.writeObject(cf.isNegritas());
-                        encoder.writeObject(cf.isFiltro());
-                        encoder.writeObject(cf.isSonido());
-                        encoder.writeObject(cf.getColor());
+                        regla = new StringBuilder();
+                        regla.append(cf.getNombre()).append("&");
+                        regla.append(cf.getExpresion()).append("&");
+                        regla.append(cf.isSubrayado()).append("&");
+                        regla.append(cf.isNegritas()).append("&");
+                        regla.append(cf.isFiltro()).append("&");
+                        regla.append(cf.isSonido()).append("&");
+                        regla.append(cf.getColor().getRed()).append("&");
+                        regla.append(cf.getColor().getGreen()).append("&");
+                        regla.append(cf.getColor().getBlue()).append("\n");
+                        pw.append(regla);
                     }
                 }
             }
-            encoder.flush();
-            encoder.close();
-            System.out.println("Configuration saved.");
         } catch (Exception e) {
+            e.printStackTrace();
             System.out.println("Unable to save configuration for next use: " + e);
+        } finally {
+            Util.cerrarLecturaEscritura(pw, fw);
         }
-
-        // No need to explictly tidy anything else up as we're only reading files.
         System.exit(0);
     }
 
@@ -212,7 +216,7 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         int desktopHeight = escritorio.getHeight();
         JInternalFrame[] frames = escritorio.getAllFrames();
         int frameCount = frames.length;
-        int n=0;
+        int n = 0;
         for (JInternalFrame jFrame : frames) {
             try {
                 jFrame.setIcon(false);
@@ -253,6 +257,19 @@ public class JLogTailerFrame extends JFrame implements Serializable {
                 frame.toFront();
                 windowsDrawn++;
             }
+        }
+    }
+
+    private void crearArchivoConfiguracion() {
+        FileWriter fw = null;
+        PrintWriter pw = null;
+        try {
+            fw = new FileWriter(ARCHIVO_CONFIGURACION);
+            pw = new PrintWriter(fw);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            Util.cerrarLecturaEscritura(pw, fw);
         }
     }
 }
