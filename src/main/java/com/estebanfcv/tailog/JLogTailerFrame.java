@@ -1,5 +1,6 @@
 package com.estebanfcv.tailog;
 
+import com.estebanfcv.util.Cache;
 import com.estebanfcv.util.Util;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -165,6 +166,7 @@ public class JLogTailerFrame extends JFrame implements Serializable {
                     rules.add(regla);
                 }
             }
+            Cache.llenarMapaCondiciones(rules);
             startLogging(file, rules, new Rectangle(0, 0, 640, 480));
         } catch (Exception e) {
             e.printStackTrace();
