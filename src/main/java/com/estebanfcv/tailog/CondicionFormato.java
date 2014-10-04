@@ -4,7 +4,6 @@ import java.awt.Color;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 
-
 /**
  *
  * @author estebanfcv
@@ -12,7 +11,7 @@ import javax.swing.text.StyleConstants;
 public class CondicionFormato implements java.io.Serializable {
 
     private String nombre;
-    private String expresion;
+    private String condicion;
     private boolean subrayado;
     private boolean negritas;
     private boolean filtro;
@@ -23,14 +22,14 @@ public class CondicionFormato implements java.io.Serializable {
         this("Default", "", false, false, false, false, Color.black);
     }
 
-    public CondicionFormato(String name, String regexp, boolean underlined, boolean bold, boolean filtered, boolean beep,
-            Color color)  {
-        nombre = name;
-        expresion = regexp;
-        subrayado = underlined;
-        negritas = bold;
-        sonido = beep;
-        filtro = filtered;
+    public CondicionFormato(String nombre, String condicion, boolean subrayado, boolean negritas, boolean filtro,
+            boolean sonido,Color color) {
+        this.nombre = nombre;
+        this.condicion = condicion;
+        this.subrayado = subrayado;
+        this.negritas = negritas;
+        this.sonido = sonido;
+        this.filtro = filtro;
         this.color = color;
     }
 
@@ -44,8 +43,8 @@ public class CondicionFormato implements java.io.Serializable {
         return nombre;
     }
 
-    public String getExpresion() {
-        return expresion;
+    public String getCondicion() {
+        return condicion;
     }
 
     public boolean isSubrayado() {
@@ -73,4 +72,31 @@ public class CondicionFormato implements java.io.Serializable {
         return getNombre();
     }
 
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public void setCondicion(String condicion) {
+        this.condicion = condicion;
+    }
+
+    public void setSubrayado(boolean subrayado) {
+        this.subrayado = subrayado;
+    }
+
+    public void setNegritas(boolean negritas) {
+        this.negritas = negritas;
+    }
+
+    public void setFiltro(boolean filtro) {
+        this.filtro = filtro;
+    }
+
+    public void setSonido(boolean sonido) {
+        this.sonido = sonido;
+    }
+
+    public void setColor(Color color) {
+        this.color = color;
+    }
 }

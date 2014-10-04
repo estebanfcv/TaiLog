@@ -151,7 +151,7 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
             // actually quicker than using an iterator on any other kind of List.
             synchronized (rules) {
                 for (CondicionFormato candidate : rules) {
-                    if (line.contains(candidate.getExpresion())) {
+                    if (line.contains(candidate.getCondicion())) {
                         rule = candidate;
                         break;
                     }

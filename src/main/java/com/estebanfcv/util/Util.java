@@ -10,8 +10,8 @@ import java.io.PrintWriter;
  * @author estebanfcv
  */
 public class Util {
-    
-     public static void cerrarLecturaEscritura(BufferedReader br, FileReader fr) {
+
+    public static void cerrarLecturaEscritura(BufferedReader br, FileReader fr) {
         try {
             if (br != null) {
                 br.close();
@@ -24,8 +24,8 @@ public class Util {
             e.printStackTrace();
         }
     }
-     
-     public static void cerrarLecturaEscritura(PrintWriter pw, FileWriter fw) {
+
+    public static void cerrarLecturaEscritura(PrintWriter pw, FileWriter fw) {
         try {
             if (pw != null) {
                 pw.close();
@@ -37,5 +37,8 @@ public class Util {
             e.printStackTrace();
         }
     }
-    
+
+    public static int toInt(String cadena) {
+        return Integer.parseInt(cadena);
+    }
 }

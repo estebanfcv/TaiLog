@@ -28,6 +28,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
+import static com.estebanfcv.util.Util.toInt;
 
 /**
  *
@@ -43,8 +44,8 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         this.setTitle(title);
         this.setSize(width, height);
 
-        Container pane = this.getContentPane();
-        pane.add(escritorio, BorderLayout.CENTER);
+        Container container = this.getContentPane();
+        container.add(escritorio, BorderLayout.CENTER);
 
         JMenuBar menuBar = new JMenuBar();
 
@@ -54,13 +55,6 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         fileMenu.add(fileOpenItem);
         JMenuItem fileExitItem = new JMenuItem("Salir");
         fileMenu.add(fileExitItem);
-
-        JMenu windowMenu = new JMenu("Ventana");
-        menuBar.add(windowMenu);
-        JMenuItem windowTileVerticallyItem = new JMenuItem("Tile vertically");
-        windowMenu.add(windowTileVerticallyItem);
-        JMenuItem windowTileBoxedItem = new JMenuItem("Tile boxed");
-        windowMenu.add(windowTileBoxedItem);
 
         JMenu helpMenu = new JMenu("Ayuda");
         menuBar.add(helpMenu);
@@ -84,9 +78,9 @@ public class JLogTailerFrame extends JFrame implements Serializable {
                 JFileChooser chooser = new JFileChooser(directorioActual);
                 int returnVal = chooser.showOpenDialog(JLogTailerFrame.this);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
-                    File file = new File(chooser.getCurrentDirectory(), chooser.getSelectedFile().getName());
-                    leerArchivoConfiguracion(file);
-                    directorioActual = file.getParentFile();
+                    File archivoLog = new File(chooser.getCurrentDirectory(), chooser.getSelectedFile().getName());
+                    leerArchivoConfiguracion(archivoLog);
+                    directorioActual = archivoLog.getParentFile();
                 }
             }
         });
@@ -95,18 +89,6 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         fileExitItem.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
                 salir();
-            }
-        });
-
-        windowTileVerticallyItem.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent ae) {
-                tileInternalFramesVertically();
-            }
-        });
-
-        windowTileBoxedItem.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent ae) {
-                tileInternalFramesBoxed();
             }
         });
 
@@ -123,14 +105,14 @@ public class JLogTailerFrame extends JFrame implements Serializable {
 
     }
 
-    private void startLogging(File file, List rules, Rectangle bounds) throws IOException {
-        JLogTailerInternalFrame iFrame = new JLogTailerInternalFrame(JLogTailerFrame.this, file, bounds);
+    private void iniciarLog(File archivoLog, List<CondicionFormato> rules, Rectangle bounds) throws IOException {
+        JLogTailerInternalFrame iFrame = new JLogTailerInternalFrame(JLogTailerFrame.this, archivoLog, bounds);
         if (rules != null) {
-            List logRules = iFrame.getRules();
-            synchronized (logRules) {
-                logRules.addAll(rules);
+            List<CondicionFormato> listaReglas = iFrame.getRules();
+            synchronized (listaReglas) {
+                listaReglas.addAll(rules);
             }
-            iFrame.setRules(logRules);
+            iFrame.setRules(listaReglas);
         }
         escritorio.add(iFrame);
         iFrame.moveToFront();
@@ -138,11 +120,11 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         t.start();
     }
 
-    private void leerArchivoConfiguracion(File file) {
+    private void leerArchivoConfiguracion(File archivoLog) {
 
         FileReader fr = null;
         BufferedReader br = null;
-        ArrayList<CondicionFormato> rules = new ArrayList();
+        ArrayList<CondicionFormato> listaReglas = new ArrayList();
         try {
             if (!ARCHIVO_CONFIGURACION.exists()) {
                 crearArchivoConfiguracion();
@@ -152,22 +134,19 @@ public class JLogTailerFrame extends JFrame implements Serializable {
             String linea;
             while ((linea = br.readLine()) != null) {
                 for (StringTokenizer token = new StringTokenizer(linea, "&"); token.hasMoreTokens();) {
-                    String nombre = token.nextToken();
-                    String condicion = token.nextToken();
-                    boolean subrayado = Boolean.parseBoolean(token.nextToken());
-                    boolean negritas = Boolean.parseBoolean(token.nextToken());
-                    boolean filtro = Boolean.parseBoolean(token.nextToken());
-                    boolean sonido = Boolean.parseBoolean(token.nextToken());
-                    int r = Integer.parseInt(token.nextToken());
-                    int g = Integer.parseInt(token.nextToken());
-                    int b = Integer.parseInt(token.nextToken());
-                    Color color = new Color(r, g, b);
-                    CondicionFormato regla = new CondicionFormato(nombre, condicion, subrayado, negritas, filtro, sonido, color);
-                    rules.add(regla);
+                    CondicionFormato cf = new CondicionFormato();
+                    cf.setNombre(token.nextToken());
+                    cf.setCondicion(token.nextToken());
+                    cf.setSubrayado(Boolean.parseBoolean(token.nextToken()));
+                    cf.setNegritas(Boolean.parseBoolean(token.nextToken()));
+                    cf.setFiltro(Boolean.parseBoolean(token.nextToken()));
+                    cf.setSonido(Boolean.parseBoolean(token.nextToken()));
+                    cf.setColor(new Color(toInt(token.nextToken()), toInt(token.nextToken()), toInt(token.nextToken())));
+                    listaReglas.add(cf);
                 }
             }
-            Cache.llenarMapaCondiciones(rules);
-            startLogging(file, rules, new Rectangle(0, 0, 640, 480));
+            Cache.llenarMapaCondiciones(listaReglas);
+            iniciarLog(archivoLog, listaReglas, new Rectangle(0, 0, 640, 480));
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Could not find previous configuration: assuming defaults.");
@@ -184,15 +163,14 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         try {
             fw = new FileWriter(ARCHIVO_CONFIGURACION, false);
             pw = new PrintWriter(fw);
-            JInternalFrame[] frames = escritorio.getAllFrames();
-            for (JInternalFrame jFrame : frames) {
+            for (JInternalFrame jFrame : escritorio.getAllFrames()) {
                 JLogTailerInternalFrame frame = (JLogTailerInternalFrame) jFrame;
-                List<CondicionFormato> rules = frame.getRules();
-                synchronized (rules) {
-                    for (CondicionFormato cf : rules) {
+                List<CondicionFormato> listaReglas = frame.getRules();
+                synchronized (listaReglas) {
+                    for (CondicionFormato cf : listaReglas) {
                         regla = new StringBuilder();
                         regla.append(cf.getNombre()).append("&");
-                        regla.append(cf.getExpresion()).append("&");
+                        regla.append(cf.getCondicion()).append("&");
                         regla.append(cf.isSubrayado()).append("&");
                         regla.append(cf.isNegritas()).append("&");
                         regla.append(cf.isFiltro()).append("&");
@@ -211,55 +189,6 @@ public class JLogTailerFrame extends JFrame implements Serializable {
             Util.cerrarLecturaEscritura(pw, fw);
         }
         System.exit(0);
-    }
-
-    private void tileInternalFramesVertically() {
-        int desktopWidth = escritorio.getWidth();
-        int desktopHeight = escritorio.getHeight();
-        JInternalFrame[] frames = escritorio.getAllFrames();
-        int frameCount = frames.length;
-        int n = 0;
-        for (JInternalFrame jFrame : frames) {
-            try {
-                jFrame.setIcon(false);
-            } catch (java.beans.PropertyVetoException e) {
-                e.printStackTrace();
-            }
-            jFrame.reshape(0, (n * desktopHeight) / frameCount, desktopWidth, desktopHeight / frameCount);
-            jFrame.setVisible(true);
-            jFrame.toFront();
-            n++;
-        }
-    }
-
-    private void tileInternalFramesBoxed() {
-        int desktopWidth = escritorio.getWidth();
-        int desktopHeight = escritorio.getHeight();
-        JInternalFrame[] frames = escritorio.getAllFrames();
-        int frameCount = frames.length;
-        int totalRows = (int) Math.sqrt((double) frameCount);
-        int totalCols = 1;
-        while (totalCols * totalRows < frameCount) {
-            totalCols++;
-        }
-        int windowsDrawn = 0;
-        for (int row = 0; row < totalRows; row++) {
-            for (int col = 0; col < totalCols; col++) {
-                if (windowsDrawn == frameCount) {
-                    break;
-                }
-                JInternalFrame frame = frames[row * totalCols + col];
-                try {
-                    frame.setIcon(false);
-                } catch (java.beans.PropertyVetoException e) {
-                    // Carry on...
-                }
-                frame.reshape((col * desktopWidth) / totalCols, (row * desktopHeight) / totalRows, desktopWidth / totalCols, desktopHeight / totalRows);
-                frame.setVisible(true);
-                frame.toFront();
-                windowsDrawn++;
-            }
-        }
     }
 
     private void crearArchivoConfiguracion() {

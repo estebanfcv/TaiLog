@@ -34,7 +34,7 @@ public class CondicionFormatoDialog extends JDialog {
         super(owner);
 
         jtfNombre = new JTextField(rule.getNombre());
-        jtfRegla = new JTextField(rule.getExpresion());
+        jtfRegla = new JTextField(rule.getCondicion());
         jcbNegritas.setSelected(rule.isNegritas());
         jcbSubrayado.setSelected(rule.isSubrayado());
         jcbFiltrado.setSelected(rule.isFiltro());
