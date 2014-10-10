@@ -42,11 +42,13 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
     private long filePointer;
     private final AutoScrollTextArea asta = new AutoScrollTextArea();
 
-    private  List<CondicionFormato> rules = new ArrayList();
+    private List<CondicionFormato> rules = new ArrayList();
 
     private final CondicionFormato defaultRule = new CondicionFormato();
 
     private JFrame _owner;
+
+    private boolean suspender = false;
 
     public JLogTailerInternalFrame(JFrame owner, File file, Rectangle bounds) throws IOException {
         _owner = owner;
@@ -80,6 +82,12 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
 
         JMenuItem menuCerrar = new JMenuItem("Cerrar");
         fileMenu.add(menuCerrar);
+        final JMenuItem iniciar = new JMenuItem("Iniciar");
+        fileMenu.add(iniciar);
+        iniciar.setVisible(false);
+        final JMenuItem detener = new JMenuItem("Detener");
+        fileMenu.add(detener);
+        detener.setVisible(!suspender);
         JMenuItem menuOpciones = new JMenuItem("Opciones");
         menuFormato.add(menuOpciones);
 
@@ -89,6 +97,26 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
             public void actionPerformed(ActionEvent ae) {
                 corriendo = false;
                 dispose();
+            }
+        });
+        iniciar.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent ae) {
+                iniciar.setVisible(false);
+                detener.setVisible(true);
+                System.out.println("[INFO] El hilo está reanudando...");
+                corriendo = true;
+
+//                suspender = false;
+//                notify();
+            }
+        });
+        detener.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent ae) {
+                detener.setVisible(false);
+                iniciar.setVisible(true);
+                System.out.println("[INFO] El hilo está suspendido...");
+//                suspender = true;
+                corriendo = false;
             }
         });
 
@@ -116,30 +144,41 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
     // a later date so that a different approach is used.
     public void run() {
         try {
-            while (corriendo) {
-                Thread.sleep(dormir);
-                long len = file.length();
-                if (len < filePointer) {
-                    // Log must have been jibbled or deleted.
-                    this.appendMessage("Log file was reset. Restarting logging from start of file.");
-                    filePointer = len;
-                } else if (len > filePointer) {
-                    // File must have had something added to it!
-                    RandomAccessFile raf = new RandomAccessFile(file, "r");
-                    raf.seek(filePointer);
-                    String line;
-                    while ((line = raf.readLine()) != null) {
-                        System.out.println("La linea es:::::: "+line);
-                        this.appendLine(line);
+            while (true) {
+                System.out.println("corriendo es:::::::::: "+corriendo);
+                if (corriendo) {
+                    System.out.println("ENTREEEEEEEEEEEEEEEEEEEEEE");
+                    Thread.sleep(dormir);
+                    long len = file.length();
+                    if (len < filePointer) {
+                        // Log must have been jibbled or deleted.
+                        this.appendMessage("Log file was reset. Restarting logging from start of file.");
+                        filePointer = len;
+                    } else if (len > filePointer) {
+                        // File must have had something added to it!
+                        RandomAccessFile raf = new RandomAccessFile(file, "r");
+                        raf.seek(filePointer);
+                        String line;
+                        while ((line = raf.readLine()) != null) {
+                            System.out.println("La linea es:::::: " + line);
+                            this.appendLine(line);
+                        }
+                        filePointer = raf.getFilePointer();
+                        raf.close();
                     }
-                    filePointer = raf.getFilePointer();
-                    raf.close();
+//                synchronized (this) {
+//                    while (suspender) {
+//                        System.out.println("suspender es:::: "+suspender);
+//                        wait();
+//                    }
+//                }
                 }
             }
+
         } catch (Exception e) {
             this.appendMessage("Fatal error reading log file, log tailing has stopped.");
         }
-         dispose();
+        dispose();
     }
 
     public void appendLine(String line) {

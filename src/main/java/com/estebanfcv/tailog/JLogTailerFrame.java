@@ -129,6 +129,9 @@ public class JLogTailerFrame extends JFrame implements Serializable {
             if (!ARCHIVO_CONFIGURACION.exists()) {
                 crearArchivoConfiguracion();
             }
+            if (!ARCHIVO_CONFIGURACION.exists()) {
+                return;
+            }
             fr = new FileReader(ARCHIVO_CONFIGURACION);
             br = new BufferedReader(fr);
             String linea;
