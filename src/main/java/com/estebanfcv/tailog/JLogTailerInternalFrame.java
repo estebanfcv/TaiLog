@@ -48,7 +48,6 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
 
     private JFrame _owner;
 
-    private boolean suspender = false;
 
     public JLogTailerInternalFrame(JFrame owner, File file, Rectangle bounds) throws IOException {
         _owner = owner;
@@ -87,7 +86,7 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
         iniciar.setVisible(false);
         final JMenuItem detener = new JMenuItem("Detener");
         fileMenu.add(detener);
-        detener.setVisible(!suspender);
+        detener.setVisible(true);
         JMenuItem menuOpciones = new JMenuItem("Opciones");
         menuFormato.add(menuOpciones);
 
@@ -105,9 +104,6 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
                 detener.setVisible(true);
                 System.out.println("[INFO] El hilo está reanudando...");
                 corriendo = true;
-
-//                suspender = false;
-//                notify();
             }
         });
         detener.addActionListener(new ActionListener() {
@@ -115,7 +111,6 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
                 detener.setVisible(false);
                 iniciar.setVisible(true);
                 System.out.println("[INFO] El hilo está suspendido...");
-//                suspender = true;
                 corriendo = false;
             }
         });
@@ -166,12 +161,6 @@ public class JLogTailerInternalFrame extends JInternalFrame implements Runnable,
                         filePointer = raf.getFilePointer();
                         raf.close();
                     }
-//                synchronized (this) {
-//                    while (suspender) {
-//                        System.out.println("suspender es:::: "+suspender);
-//                        wait();
-//                    }
-//                }
                 }
             }
 
