@@ -34,35 +34,35 @@ import static com.estebanfcv.util.Util.toInt;
  *
  * @author estebanfcv
  */
-public class JLogTailerFrame extends JFrame implements Serializable {
+public class TaiLogMainFrame extends JFrame implements Serializable {
 
     public static final File ARCHIVO_CONFIGURACION = new File(System.getProperties().getProperty("user.home"), "TaiLog.txt");
     private final transient JDesktopPane escritorio = new JDesktopPane();
     private File directorioActual = null;
 
-    public JLogTailerFrame(String title, int width, int height) {
+    public TaiLogMainFrame(String title, int width, int height) {
         this.setTitle(title);
         this.setSize(width, height);
 
-        Container container = this.getContentPane();
-        container.add(escritorio, BorderLayout.CENTER);
+        Container contenedor = this.getContentPane();
+        contenedor.add(escritorio, BorderLayout.CENTER);
 
-        JMenuBar menuBar = new JMenuBar();
+        JMenuBar barraMenus = new JMenuBar();
 
-        JMenu fileMenu = new JMenu("Archivo");
-        menuBar.add(fileMenu);
-        JMenuItem fileOpenItem = new JMenuItem("Abrir log");
-        fileMenu.add(fileOpenItem);
-        JMenuItem fileExitItem = new JMenuItem("Salir");
-        fileMenu.add(fileExitItem);
+        JMenu archivo = new JMenu("Archivo");
+        barraMenus.add(archivo);
+        JMenuItem abrir = new JMenuItem("Abrir log");
+        archivo.add(abrir);
+        JMenuItem salir = new JMenuItem("Salir");
+        archivo.add(salir);
 
-        JMenu helpMenu = new JMenu("Ayuda");
-        menuBar.add(helpMenu);
+        JMenu ayuda = new JMenu("Ayuda");
+        barraMenus.add(ayuda);
 
-        JMenuItem helpAboutItem = new JMenuItem("Acerca de");
-        helpMenu.add(helpAboutItem);
+        JMenuItem acerca = new JMenuItem("Acerca de");
+        ayuda.add(acerca);
 
-        this.setJMenuBar(menuBar);
+        this.setJMenuBar(barraMenus);
 
         // Allows the window to be closed.
         this.addWindowListener(new WindowAdapter() {
@@ -73,10 +73,10 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         });
 
         // Adds a new log tailing internal frame to the desktop.
-        fileOpenItem.addActionListener(new ActionListener() {
+        abrir.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
                 JFileChooser chooser = new JFileChooser(directorioActual);
-                int returnVal = chooser.showOpenDialog(JLogTailerFrame.this);
+                int returnVal = chooser.showOpenDialog(TaiLogMainFrame.this);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
                     File archivoLog = new File(chooser.getCurrentDirectory(), chooser.getSelectedFile().getName());
                     leerArchivoConfiguracion(archivoLog);
@@ -86,18 +86,16 @@ public class JLogTailerFrame extends JFrame implements Serializable {
         });
 
         // Exits the application.
-        fileExitItem.addActionListener(new ActionListener() {
+        salir.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
                 salir();
             }
         });
 
         // Displays "about" information.
-        helpAboutItem.addActionListener(new ActionListener() {
+        acerca.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-                JOptionPane.showMessageDialog(JLogTailerFrame.this,
-                        "JLogTailer 2.0.0\nA Java log tailer by Paul Mutton\nhttp://www.jibble.org/",
-                        "About", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(TaiLogMainFrame.this, "TaiLog 1.0.0", "Acerca de", JOptionPane.INFORMATION_MESSAGE);
             }
         });
 
@@ -106,7 +104,7 @@ public class JLogTailerFrame extends JFrame implements Serializable {
     }
 
     private void iniciarLog(File archivoLog, List<CondicionFormato> rules, Rectangle bounds) throws IOException {
-        JLogTailerInternalFrame iFrame = new JLogTailerInternalFrame(JLogTailerFrame.this, archivoLog, bounds);
+        JLogTailerInternalFrame iFrame = new JLogTailerInternalFrame(TaiLogMainFrame.this, archivoLog, bounds);
         if (rules != null) {
             List<CondicionFormato> listaReglas = iFrame.getRules();
             synchronized (listaReglas) {
